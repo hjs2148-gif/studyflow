@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Activity, Calendar as CalendarIcon, RefreshCcw, Trash2, Database, X, ArrowRight, ChevronLeft, ChevronRight, Edit2, Clock, Hash, ChevronUp, ChevronDown, GripHorizontal, TrendingUp, AlertCircle, Check } from 'lucide-react';
+import { Plus, Activity, Calendar as CalendarIcon, RefreshCcw, Trash2, Database, X, ArrowRight, ChevronLeft, ChevronRight, Edit2, Clock, Hash, ChevronUp, ChevronDown, GripHorizontal, TrendingUp, AlertCircle, Check, Eye } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as ReTooltip } from 'recharts';
 import { addDoc, collection, serverTimestamp, deleteDoc, doc, updateDoc, getFirestore } from 'firebase/firestore';
 import { CollapsibleCard, SimpleCircularProgress } from '../components/Common';
@@ -51,10 +51,104 @@ const TaskSpecificCalendar: React.FC<TaskSpecificCalendarProps> = ({ sessions, t
 };
 
 const CreateTaskView = ({ onCancel, onSave }: { onCancel: () => void, onSave: (data: any) => Promise<void> }) => {
-  const [name, setName] = useState(''); const [totalAmount, setTotalAmount] = useState(''); const [unit, setUnit] = useState('페이지'); const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]); const [endDate, setEndDate] = useState(''); const [dayStates, setDayStates] = useState<Record<string, 'learning' | 'supplementary' | 'rest'>>({ '월': 'learning', '화': 'learning', '수': 'learning', '목': 'learning', '금': 'learning', '토': 'learning', '일': 'learning' }); const units = ['페이지', '문제', '강', '회독', '%', '시간']; const days = ['월', '화', '수', '목', '금', '토', '일'];
+  const [name, setName] = useState('');
+  const [totalAmount, setTotalAmount] = useState('');
+  const [unit, setUnit] = useState('페이지');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState('');
+  const [dayStates, setDayStates] = useState<Record<string, 'learning' | 'supplementary' | 'rest'>>({ '월': 'learning', '화': 'learning', '수': 'learning', '목': 'learning', '금': 'learning', '토': 'learning', '일': 'learning' });
+  const [showPreview, setShowPreview] = useState(false);
+  const units = ['페이지', '문제', '강', '회독', '%', '시간'];
+  const days = ['월', '화', '수', '목', '금', '토', '일'];
+
   const toggleDay = (day: string) => { setDayStates(prev => { const current = prev[day]; let next: 'learning' | 'supplementary' | 'rest'; if (current === 'rest') next = 'learning'; else if (current === 'learning') next = 'supplementary'; else next = 'rest'; return { ...prev, [day]: next }; }); };
   const handleSave = async (e: any) => { if (e && e.preventDefault) e.preventDefault(); if (!name || !totalAmount || !endDate) { alert('필수 정보를 입력해주세요.'); return; } const repeatDays = days.reduce((acc, day) => { const status = dayStates[day]; if (status === 'learning') acc.push(day); else if (status === 'supplementary') acc.push(`${day}(보충)`); return acc; }, [] as string[]); try { await onSave({ name, totalAmount: Number(totalAmount), unit, startDate, targetDate: endDate, repeatDays }); } finally { onCancel(); } };
-  return (<div className="fixed inset-0 z-[100] bg-gray-50 flex flex-col w-full max-w-md mx-auto animate-in slide-in-from-bottom-10 duration-300"><div className="bg-white px-4 py-4 flex items-center justify-between border-b border-gray-100 sticky top-0 z-20"><button onClick={onCancel} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full"><X size={24} /></button><h2 className="text-lg font-bold text-gray-900">새로운 목표 설정</h2><div className="w-10"></div></div><div className="flex-1 overflow-y-auto p-6 space-y-8"><div className="space-y-2"><label className="text-sm font-bold text-gray-500 ml-1">과목 이름</label><input className="w-full text-xl font-bold bg-white border-b-2 border-gray-200 px-2 py-3 focus:outline-none focus:border-indigo-600 placeholder-gray-300" placeholder="예: 수학의 정석" value={name} onChange={e => setName(e.target.value)} autoFocus /></div><div className="space-y-4"><label className="text-sm font-bold text-gray-500 ml-1">목표량 설정</label><div className="flex items-center gap-3"><div className="flex-1 bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center"><input type="number" className="w-full text-lg font-bold bg-transparent focus:outline-none" placeholder="숫자" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} /></div><div className="w-1/3 bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center"><input type="text" className="w-full text-center text-gray-700 font-bold bg-transparent focus:outline-none placeholder-gray-300" placeholder="단위" value={unit} onChange={(e) => setUnit(e.target.value)} /></div></div><div className="flex flex-wrap gap-2">{units.map(u => (<button key={u} onClick={() => setUnit(u)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${unit === u ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'}`}>{u}</button>))}</div></div><div className="space-y-4"><label className="text-sm font-bold text-gray-500 ml-1">기간 설정</label><div className="flex items-center gap-3"><div className="flex-1"><span className="text-xs text-gray-400 block mb-1 ml-1">시작일</span><input type="date" className="w-full bg-white border rounded-xl p-3 text-sm font-medium" value={startDate} onChange={e => setStartDate(e.target.value)} /></div><ArrowRight size={20} className="text-gray-300 mt-5" /><div className="flex-1"><span className="text-xs text-gray-400 block mb-1 ml-1">종료일</span><input type="date" className="w-full bg-white border rounded-xl p-3 text-sm font-medium" value={endDate} onChange={e => setEndDate(e.target.value)} /></div></div></div><div className="space-y-4"><label className="text-sm font-bold text-gray-500 ml-1">학습 요일 설정 <span className="text-xs font-normal text-gray-400 ml-1">(1번:학습, 2번:보충, 3번:휴식)</span></label><div className="flex justify-between">{days.map(day => { const status = dayStates[day]; let btnClass = "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all border "; if (status === 'learning') { btnClass += "bg-indigo-600 text-white border-indigo-600"; } else if (status === 'supplementary') { btnClass += "bg-amber-400 text-white border-amber-400"; } else { btnClass += "bg-white text-gray-400 border-gray-200"; } return (<button key={day} onClick={() => toggleDay(day)} className={btnClass}>{day}</button>); })}</div></div></div><div className="p-4 bg-white border-t border-gray-100 flex gap-3"><button onClick={onCancel} className="flex-1 py-4 bg-gray-100 text-gray-500 text-lg font-bold rounded-2xl hover:bg-gray-200 transition-all active:scale-[0.98]">닫기</button><button onClick={handleSave} className="flex-1 py-4 bg-indigo-600 text-white text-lg font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition-all active:scale-[0.98]">설정</button></div></div>);
+
+  const getDDayLabel = () => { if (!endDate) return '기한 없음'; const today = new Date(); today.setHours(0,0,0,0); const target = new Date(endDate); target.setHours(0,0,0,0); const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)); return diff > 0 ? `D-${diff}` : diff === 0 ? 'D-Day' : 'D+' + Math.abs(diff); };
+  const totalDays = endDate && startDate ? Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24))) : 1;
+  const recommendedPace = endDate && totalAmount ? Number((Number(totalAmount) / totalDays).toFixed(1)) : 0;
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-gray-50 flex flex-col w-full max-w-md mx-auto animate-in slide-in-from-bottom-10 duration-300">
+      <div className="bg-white px-4 py-4 flex items-center justify-between border-b border-gray-100 sticky top-0 z-20">
+        <button onClick={onCancel} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full"><X size={24} /></button>
+        <h2 className="text-lg font-bold text-gray-900">새로운 목표 설정</h2>
+        <button onClick={() => setShowPreview(true)} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full" title="미리보기"><Eye size={22} /></button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div className="space-y-2"><label className="text-sm font-bold text-gray-500 ml-1">과목 이름</label><input className="w-full text-xl font-bold bg-white border-b-2 border-gray-200 px-2 py-3 focus:outline-none focus:border-indigo-600 placeholder-gray-300" placeholder="예: 수학의 정석" value={name} onChange={e => setName(e.target.value)} autoFocus /></div>
+        <div className="space-y-4"><label className="text-sm font-bold text-gray-500 ml-1">목표량 설정</label><div className="flex items-center gap-3"><div className="flex-1 bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center"><input type="number" className="w-full text-lg font-bold bg-transparent focus:outline-none" placeholder="숫자" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} /></div><div className="w-1/3 bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex items-center"><input type="text" className="w-full text-center text-gray-700 font-bold bg-transparent focus:outline-none placeholder-gray-300" placeholder="단위" value={unit} onChange={(e) => setUnit(e.target.value)} /></div></div><div className="flex flex-wrap gap-2">{units.map(u => (<button key={u} onClick={() => setUnit(u)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${unit === u ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100'}`}>{u}</button>))}</div></div>
+        <div className="space-y-4"><label className="text-sm font-bold text-gray-500 ml-1">기간 설정</label><div className="flex items-center gap-3"><div className="flex-1"><span className="text-xs text-gray-400 block mb-1 ml-1">시작일</span><input type="date" className="w-full bg-white border rounded-xl p-3 text-sm font-medium" value={startDate} onChange={e => setStartDate(e.target.value)} /></div><ArrowRight size={20} className="text-gray-300 mt-5" /><div className="flex-1"><span className="text-xs text-gray-400 block mb-1 ml-1">종료일</span><input type="date" className="w-full bg-white border rounded-xl p-3 text-sm font-medium" value={endDate} onChange={e => setEndDate(e.target.value)} /></div></div></div>
+        <div className="space-y-4"><label className="text-sm font-bold text-gray-500 ml-1">학습 요일 설정 <span className="text-xs font-normal text-gray-400 ml-1">(1번:학습, 2번:보충, 3번:휴식)</span></label><div className="flex justify-between">{days.map(day => { const status = dayStates[day]; let btnClass = "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all border "; if (status === 'learning') { btnClass += "bg-indigo-600 text-white border-indigo-600"; } else if (status === 'supplementary') { btnClass += "bg-amber-400 text-white border-amber-400"; } else { btnClass += "bg-white text-gray-400 border-gray-200"; } return (<button key={day} onClick={() => toggleDay(day)} className={btnClass}>{day}</button>); })}</div></div>
+      </div>
+
+      <div className="p-4 bg-white border-t border-gray-100 flex gap-3">
+        <button onClick={onCancel} className="flex-1 py-4 bg-gray-100 text-gray-500 text-lg font-bold rounded-2xl hover:bg-gray-200 transition-all active:scale-[0.98]">닫기</button>
+        <button onClick={handleSave} className="flex-1 py-4 bg-indigo-600 text-white text-lg font-bold rounded-2xl shadow-lg hover:bg-indigo-700 transition-all active:scale-[0.98]">설정</button>
+      </div>
+
+      {showPreview && (
+        <div className="fixed inset-0 z-[200] flex flex-col justify-end bg-black/40 backdrop-blur-sm animate-in fade-in" onClick={() => setShowPreview(false)}>
+          <div className="bg-white rounded-t-3xl p-6 w-full max-w-md mx-auto animate-in slide-in-from-bottom-5 duration-300" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-base font-bold text-gray-800">카드 미리보기</h3>
+              <button onClick={() => setShowPreview(false)} className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"><X size={20} /></button>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 flex overflow-hidden mb-4">
+              <div className="w-3 bg-emerald-500 shrink-0"></div>
+              <div className="p-5 flex-1">
+                <div className="mb-3">
+                  <h3 className="font-bold text-lg text-gray-800">{name || <span className="text-gray-300">과목 이름</span>}</h3>
+                  <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                    <CalendarIcon size={12} />
+                    {getDDayLabel()}
+                    <span className="mx-1 text-gray-200">|</span>
+                    {totalAmount || '0'}{unit}
+                  </p>
+                </div>
+                <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden mb-2">
+                  <div className="bg-indigo-500 h-full" style={{ width: '0%' }}></div>
+                </div>
+                <div className="flex justify-between items-center text-xs font-medium text-gray-500 mb-3">
+                  <span className="font-bold text-gray-700">0% 달성</span>
+                  <span>0 / {totalAmount || '0'}</span>
+                </div>
+                {endDate && totalAmount && (
+                  <div className="px-3 py-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between animate-in fade-in">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight mb-0.5">페이스메이커 수치 가이드</span>
+                      <p className="text-[10px] font-bold text-gray-600">
+                        목표 달성까지 하루 평균 <span className="text-indigo-600 font-black">{recommendedPace}{unit}</span> 권장
+                      </p>
+                    </div>
+                    <div className="p-1.5 rounded-full bg-indigo-50">
+                      <Activity size={14} className="text-indigo-600" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-2xl p-4">
+              <p className="text-xs font-bold text-gray-500 mb-2">학습 요일</p>
+              <div className="flex gap-1.5">
+                {days.map(day => {
+                  const status = dayStates[day];
+                  let cls = 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ';
+                  if (status === 'learning') cls += 'bg-indigo-600 text-white';
+                  else if (status === 'supplementary') cls += 'bg-amber-400 text-white';
+                  else cls += 'bg-gray-200 text-gray-400';
+                  return <div key={day} className={cls}>{day}</div>;
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 const TaskDetailView = ({ task, sessions, onBack, settings, user, appId, db }: { task: Task, sessions: Session[], onBack: () => void, settings: Settings, user: any, appId: string, db: any }) => {
