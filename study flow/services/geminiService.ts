@@ -12,8 +12,8 @@ export const callGemini = async (prompt: string): Promise<string> => {
 
   try {
     const response = await ai.models.generateContent({
-      // Use gemini-3-flash-preview for basic/complex text tasks as recommended
-      model: 'gemini-3-flash-preview',
+      // Use gemini-2.0-flash for basic/complex text tasks as recommended
+      model: 'gemini-2.0-flash',
       contents: prompt,
     });
     // Use .text property directly as it is a getter (not a method)

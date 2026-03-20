@@ -117,9 +117,9 @@ export default function App() {
           timestamp: serverTimestamp()
         });
       };
-      shareToCommunity();
+      shareToCommunity().catch(e => console.error("Auto-share error:", e));
     }
-  }, [sessions]);
+  }, [sessions, user, tasks, settings.autoShareAchievements]);
 
   useEffect(() => {
     let isMounted = true;
@@ -178,7 +178,7 @@ export default function App() {
   useEffect(() => {
       if (activeTask) {
           const exists = tasks.find(t => t.id === activeTask.id);
-          if (!exists && tasks.length >= 0 && !loading) {
+          if (!exists && tasks.length > 0 && !loading) {
               setActiveTask(null);
           }
       }

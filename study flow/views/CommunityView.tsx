@@ -132,7 +132,7 @@ export const CommunityView: React.FC<CommunityViewProps> = ({
 
     fetchAICommunityInsights();
     fetchClanChallenge();
-  }, [feed.length > 0]);
+  }, [feed.length, tasks]);
 
   // 3. Auth Actions
   const handleGoogleSignIn = async () => {
