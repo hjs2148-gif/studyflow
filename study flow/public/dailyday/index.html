@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f8fa" />
+  <title>DAILY DAY · 유통기한 관리</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><h1>DAILY DAY</h1><p>먹기 전에, 버리기 전에. 날짜부터 챙기기.</p></div>
+      <div class="top-actions">
+        <button class="icon-btn" id="shareBtn" title="앱 공유" aria-label="앱 공유">
+          <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.6 6.8-4.1M8.6 13.4l6.8 4.1"/></svg>
+        </button>
+        <button class="icon-btn" id="resetBtn" title="예시 데이터 복원" aria-label="초기화">
+          <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="summary">
+      <div class="summary-card"><div class="label">전체</div><div class="value" id="countAll">0</div></div>
+      <div class="summary-card"><div class="label">7일 이내</div><div class="value" id="countSoon">0</div></div>
+      <div class="summary-card"><div class="label">기한 지남</div><div class="value" id="countExpired">0</div></div>
+    </section>
+
+    <section class="toolbar">
+      <div class="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="searchInput" placeholder="식품 이름 검색" />
+      </div>
+      <div class="chips" id="categoryChips"></div>
+    </section>
+
+    <div class="section-head"><h2 id="listTitle">전체 식품</h2><button class="sort-btn" id="sortBtn">임박순 ↓</button></div>
+    <section class="list" id="itemList"></section>
+  </main>
+
+  <button class="fab" id="addBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>식품 추가</button>
+
+  <div class="overlay" id="overlay">
+    <section class="sheet" role="dialog" aria-modal="true">
+      <div class="handle"></div><h3 id="sheetTitle">식품 추가</h3>
+      <form id="itemForm">
+        <input type="hidden" id="editId" />
+        <input id="photoInput" type="file" accept="image/*" capture="environment" hidden />
+        <div class="photo-row">
+          <div class="photo-preview" id="photoPreview">📷</div>
+          <div class="photo-actions">
+            <button class="photo-btn" type="button" id="photoBtn">사진 촬영 · 앨범에서 선택</button>
+            <button class="photo-btn subtle" type="button" id="removePhotoBtn" style="display:none">사진 제거</button>
+            <div class="photo-note">사진은 자동 압축되어 이 기기에만 저장됩니다.</div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="field full"><label for="name">식품 이름</label><input id="name" required placeholder="예: 우유, 고추장, 마요네즈" /></div>
+          <div class="field"><label for="category">카테고리</label><select id="category"></select></div>
+          <div class="field"><label for="expiry">유통기한 / 소비기한</label><input id="expiry" type="date" required /></div>
+          <div class="field"><label for="location">보관 위치</label><select id="location"><option>냉장</option><option>냉동</option><option>실온</option><option>기타</option></select></div>
+          <div class="field"><label for="emoji">사진 없을 때 아이콘</label><input id="emoji" maxlength="4" placeholder="🥫" /></div>
+        </div>
+        <div class="hint">목록의 식품을 누르면 수정·삭제할 수 있습니다. 저장한 식품과 사진은 현재 브라우저에 보관됩니다.</div>
+        <div class="sheet-actions" id="sheetActions"><button type="button" class="btn secondary" id="cancelBtn">취소</button><button type="submit" class="btn primary">저장</button></div>
+      </form>
+    </section>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
