@@ -1,0 +1,5 @@
+{
+  "installCommand": "cd studyflow-next && npm install",
+  "buildCommand": "cd studyflow-next && npm run build",
+  "outputDirectory": "studyflow-next/dist"
+}
