@@ -5,11 +5,14 @@ import { dueReviews } from '../domain/review';
 import type { StudySession } from '../domain/types';
 import { useStore } from '../state/store';
 import type { Nav } from './App';
+import { heatmap, paceSeries, records, streaks, weekRecap } from '../domain/stats';
+import { Heatmap, PaceChart, fmtShort } from './Charts';
 import { Button, Empty, Field, ProgressBar, Sheet, fmtMinutes } from './primitives';
 
 export function Insights({ nav }: { nav: Nav }) {
   const { data, today } = useStore();
   const [editing, setEditing] = useState<StudySession | null>(null);
+  const [paceId, setPaceId] = useState<string | null>(null);
 
   if (!data.exam || data.sessions.length === 0) {
     return (
@@ -30,6 +33,14 @@ export function Insights({ nav }: { nav: Nav }) {
   const cal = calibrationSummary(data.sessions);
   const upcoming = [...data.reviews].filter((r) => r.nextReviewDate > today).sort((a, b) => a.nextReviewDate.localeCompare(b.nextReviewDate)).slice(0, 5);
   const dueCount = dueReviews(data.reviews, today).length;
+  const st = streaks(data, today);
+  const rec = records(data.sessions);
+  const recap = weekRecap(data, today);
+  const grid = heatmap(data.sessions, today, 12);
+  const paceSubjects = data.subjects.filter((s) => paceSeries(data, s, today));
+  const paceSubject = paceSubjects.find((s) => s.id === paceId) ?? paceSubjects[0];
+  const pace = paceSubject ? paceSeries(data, paceSubject, today) : null;
+  const diff = recap.minutes - recap.prevMinutes;
   const recent = [...data.sessions].sort((a, b) => b.endTime - a.endTime).slice(0, 10);
 
   return (
@@ -46,6 +57,38 @@ export function Insights({ nav }: { nav: Nav }) {
         </div>
         {week.goalMinutes > 0 && <ProgressBar value={(week.attainment ?? 0) * 100} />}
       </div>
+
+      <div className="block">
+        <h3 className="h-sub">학습 기록</h3>
+        <div className="tiles">
+          <div><strong>{st.current}일</strong><span>연속 학습</span></div>
+          <div><strong>{st.longest}일</strong><span>최장 연속</span></div>
+          <div><strong>{rec.activeDays}일</strong><span>총 공부한 날</span></div>
+        </div>
+        <Heatmap cols={grid} />
+        <p className="muted">
+          {recap.prevMinutes > 0 || recap.minutes > 0
+            ? `지난주보다 ${diff >= 0 ? fmtMinutes(diff) + ' 더' : fmtMinutes(-diff) + ' 덜'} 공부했어요${recap.topSubjectId ? ` · 이번 주 가장 많이 한 과목: ${data.subjects.find((s) => s.id === recap.topSubjectId)?.name ?? ''}` : ''}.`
+            : '이번 주 기록이 아직 없어요.'}
+          {rec.bestDayDate && ` 하루 최고 기록은 ${fmtMinutes(rec.bestDayMinutes)}(${fmtShort(rec.bestDayDate)}), 누적 ${fmtMinutes(rec.totalMinutes)}입니다.`}
+        </p>
+        <p className="muted">쉬는 요일로 설정한 날은 연속 학습이 끊기지 않아요.</p>
+      </div>
+
+      {pace && paceSubject && (
+        <div className="block">
+          <div className="block-head">
+            <h3 className="h-sub">계획 vs 실제 진도</h3>
+            {paceSubjects.length > 1 && (
+              <select className="select-sm" aria-label="과목 선택" value={paceSubject.id} onChange={(e) => setPaceId(e.target.value)}>
+                {paceSubjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            )}
+          </div>
+          <PaceChart series={pace} today={today} unit={paceSubject.unit} />
+          <p className="muted">계획선은 최초 계획(전체 목표 ÷ 학습일)대로 매일 같은 양을 했을 때의 누적선이에요. 남은 기간에 맞춰 조정한 권장량과는 다를 수 있어요.</p>
+        </div>
+      )}
 
       <div className="block">
         <h3 className="h-sub">판정과 다음 행동</h3>

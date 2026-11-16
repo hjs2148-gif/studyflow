@@ -254,3 +254,57 @@ describe('회독', () => {
     expect(chapterInRound(ch, 2, ss)).toBe(5);
   });
 });
+
+import { heatmap, paceSeries, records, streaks, weekRecap } from './stats';
+describe('통계 (2단계)', () => {
+  const mk = (dates: string[], sub = subject({ studyDays: WEEKDAYS })) =>
+    ({ ...EMPTY_DATA, subjects: [sub], sessions: dates.map((date) => session({ date })) }) as AppData;
+  // 2026-01-05 월 ~ 01-09 금, 01-10 토 01-11 일(쉬는 요일), 01-12 월
+  it('쉬는 요일(주말)은 연속일을 끊지 않는다', () => {
+    const d = mk(['2026-01-08', '2026-01-09', '2026-01-12']);
+    expect(streaks(d, '2026-01-12')).toEqual({ current: 3, longest: 3 });
+  });
+  it('학습일에 기록이 없으면 끊긴다', () => {
+    const d = mk(['2026-01-05', '2026-01-07']); // 화요일 공백
+    expect(streaks(d, '2026-01-07').longest).toBe(1);
+    expect(streaks(d, '2026-01-07').current).toBe(1);
+  });
+  it('오늘 기록이 없어도 어제까지의 연속은 살아있고, 하루 건너뛰면 0', () => {
+    const d = mk(['2026-01-05', '2026-01-06']);
+    expect(streaks(d, '2026-01-07').current).toBe(2);
+    expect(streaks(d, '2026-01-08').current).toBe(0);
+  });
+  it('기록이 없으면 0', () => {
+    expect(streaks(mk([]), '2026-01-07')).toEqual({ current: 0, longest: 0 });
+  });
+  it('잔디: 12주 x 7일, 월요일 시작, 농도', () => {
+    const g = heatmap([session({ date: '2026-01-07', durationSeconds: 100 * 60 })], '2026-01-07', 12);
+    expect(g).toHaveLength(12);
+    expect(g[0]).toHaveLength(7);
+    const last = g[11];
+    expect(last[0].date).toBe('2026-01-05');
+    expect(last[2].level).toBe(3);
+    expect(last[4].future).toBe(true);
+  });
+  it('개인 기록', () => {
+    const r = records([session({ date: '2026-01-05', durationSeconds: 3600 }), session({ date: '2026-01-06', durationSeconds: 7200 }), session({ date: '2026-01-06', durationSeconds: 1800 })]);
+    expect(r).toMatchObject({ bestDayMinutes: 150, bestDayDate: '2026-01-06', totalMinutes: 210, activeDays: 2 });
+  });
+  it('계획선 vs 실제선: 종료일 계획 = 목표, 미래의 실제는 null', () => {
+    const d = { ...EMPTY_DATA, subjects: [subject()], sessions: [session({ date: '2026-01-01', amount: 5 }), session({ date: '2026-01-03', amount: 20 })] } as AppData;
+    const p = paceSeries(d, d.subjects[0], '2026-01-05')!;
+    expect(p.points[0].date).toBe('2026-01-01');
+    expect(p.points.at(-1)!.plan).toBeCloseTo(500);
+    expect(p.points.find((x) => x.date === '2026-01-03')!.actual).toBe(25);
+    expect(p.points.find((x) => x.date === '2026-01-10')!.actual).toBeNull();
+    expect(p.gapToday).toBeCloseTo(50 - 25); // 5일 × 10페이지 - 25
+  });
+  it('주간 리캡', () => {
+    const d = mk(['2026-01-05', '2026-01-06', '2025-12-31']);
+    const r = weekRecap(d, '2026-01-07');
+    expect(r.activeDays).toBe(2);
+    expect(r.minutes).toBe(120);
+    expect(r.prevMinutes).toBe(60);
+    expect(r.topSubjectId).toBe('s1');
+  });
+});

@@ -3,6 +3,7 @@ import { diffDays, parseDate } from '../domain/dates';
 import { n, planFor, titleOf } from '../domain/insights';
 import { pickPriority, type PlanSummary } from '../domain/plan';
 import { dueReviews, latestRecall } from '../domain/review';
+import { streaks } from '../domain/stats';
 import type { ReviewResult, Review, Subject } from '../domain/types';
 import { useStore } from '../state/store';
 import type { Nav } from './App';
@@ -39,6 +40,7 @@ export function Today({ nav }: { nav: Nav }) {
   const due = dueReviews(data.reviews, today);
   const stressed = items.filter((i) => i.plan.state === 'overloaded' || i.plan.state === 'overdue');
 
+  const streak = streaks(data, today).current;
   const goalPct = exam.dailyGoalMinutes > 0 ? (todayMinutes / exam.dailyGoalMinutes) * 100 : 0;
   const dateLabel = parseDate(today).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
 
@@ -56,7 +58,7 @@ export function Today({ nav }: { nav: Nav }) {
 
       <div className="goal">
         <div className="goal-row">
-          <span>오늘 학습시간</span>
+          <span>오늘 학습시간{streak >= 2 && <span className="streak"> · {streak}일 연속</span>}</span>
           <span>
             <strong>{fmtMinutes(todayMinutes)}</strong> / {fmtMinutes(exam.dailyGoalMinutes)}
           </span>
