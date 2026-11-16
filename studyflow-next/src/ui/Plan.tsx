@@ -2,12 +2,13 @@ import { useRef, useState } from 'react';
 import { addDays, diffDays, WEEKDAY_LABELS } from '../domain/dates';
 import { n, planFor } from '../domain/insights';
 import { flattenChapters, outlineToChapters, parseOutline } from '../domain/outline';
-import { chapterCompleted, type PlanState, type PlanSummary } from '../domain/plan';
+import { chapterInRound, roundInfo, type PlanState, type PlanSummary } from '../domain/plan';
 import type { Exam, Subject } from '../domain/types';
 import { exportBackup, importBackup } from '../storage/backup';
 import { newId, useStore } from '../state/store';
 import type { Nav } from './App';
-import { applyOption } from './reschedule';
+import { CheckIn } from './CheckIn';
+import { applyOption, usableOptions } from './reschedule';
 import { Button, Choice, Empty, Field, ProgressBar, Sheet } from './primitives';
 
 const STATE_LABEL: Record<PlanState, { text: string; tone: 'accent' | 'warn' | 'bad' }> = {
@@ -70,6 +71,7 @@ function SubjectRow({ subject, onOpen }: { subject: Subject; onOpen: () => void 
   const { data, today } = useStore();
   const plan = planFor(data, subject, today);
   const st = STATE_LABEL[plan.state];
+  const info = roundInfo(subject, data.chapters, data.sessions);
   return (
     <li>
       <button className="row row-btn" onClick={onOpen}>
@@ -79,7 +81,7 @@ function SubjectRow({ subject, onOpen }: { subject: Subject; onOpen: () => void 
             <span className={`pill pill-${st.tone}`}>{st.text}</span>
           </div>
           <span className="muted">
-            {n(plan.completed)} / {n(plan.target)}{subject.unit} · {plan.progress.toFixed(0)}%
+            {info.rounds > 1 ? `${info.round}/${info.rounds}회독 ${n(info.inRound)} / ${n(info.base)}${subject.unit}` : `${n(plan.completed)} / ${n(plan.target)}${subject.unit}`} · 전체 {plan.progress.toFixed(0)}%
           </span>
           <ProgressBar value={plan.progress} tone={st.tone === 'accent' ? 'accent' : st.tone} />
         </div>
@@ -123,6 +125,7 @@ function SubjectForm({ subject, onDone }: { subject: Subject | null; onDone: () 
   const [mode, setMode] = useState<Subject['mode']>(subject?.mode ?? 'amount');
   const [target, setTarget] = useState(String(subject?.targetAmount ?? ''));
   const [unit, setUnit] = useState(subject?.unit ?? '페이지');
+  const [rounds, setRounds] = useState(String(subject?.targetRounds ?? 1));
   const [start, setStart] = useState(subject?.startDate ?? today);
   const [end, setEnd] = useState(subject?.endDate ?? addDays(exam.examDate, -14) < today ? exam.examDate : addDays(exam.examDate, -14));
   const [days, setDays] = useState<number[]>(subject?.studyDays ?? [1, 2, 3, 4, 5, 6]);
@@ -147,6 +150,7 @@ function SubjectForm({ subject, onDone }: { subject: Subject | null; onDone: () 
         endDate: end,
         studyDays: [...days].sort(),
         status: subject?.status ?? 'active',
+        targetRounds: Math.max(1, Math.round(Number(rounds) || 1)),
       },
     });
     onDone();
@@ -165,6 +169,7 @@ function SubjectForm({ subject, onDone }: { subject: Subject | null; onDone: () 
         {mode === 'amount' && <Field label="전체 목표 분량"><input type="number" inputMode="decimal" min="1" value={target} onChange={(e) => setTarget(e.target.value)} /></Field>}
         <Field label="단위"><input value={unit} onChange={(e) => setUnit(e.target.value)} /></Field>
       </div>
+      <Field label="목표 회독 수" hint="같은 분량을 여러 번 볼 계획이면 2 이상. 전체 목표 = 1회독 분량 × 회독 수"><input type="number" inputMode="numeric" min="1" max="20" value={rounds} onChange={(e) => setRounds(e.target.value)} /></Field>
       <div className="two">
         <Field label="시작일"><input type="date" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
         <Field label="종료일"><input type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></Field>
@@ -190,11 +195,16 @@ function SubjectDetail({ subject, onBack, onEdit, editing, setEditing, nav }: { 
   const rows = flattenChapters(data.chapters, subject.id);
   const [outline, setOutline] = useState('');
   const [adding, setAdding] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const info = roundInfo(subject, data.chapters, data.sessions);
+  const leaves = rows.filter(({ chapter }) => !data.chapters.some((c) => c.parentId === chapter.id));
 
   const parsed = parseOutline(outline);
   const addOutline = () => {
     const maxOrder = data.chapters.filter((c) => c.subjectId === subject.id).reduce((m, c) => Math.max(m, c.order), -1);
-    outlineToChapters(parsed, subject.id, () => newId('ch'), maxOrder + 1).forEach((chapter) => dispatch({ type: 'UPSERT_CHAPTER', chapter }));
+    const built = outlineToChapters(parsed, subject.id, () => newId('ch'), maxOrder + 1);
+    // 분량을 적지 않은 말단 단원은 1(단원 1개)로 센다 → 체크만으로 완료 가능
+    built.forEach((c) => dispatch({ type: 'UPSERT_CHAPTER', chapter: !built.some((x) => x.parentId === c.id) && c.targetAmount <= 0 ? { ...c, targetAmount: 1 } : c }));
     setOutline('');
     setAdding(false);
   };
@@ -222,6 +232,34 @@ function SubjectDetail({ subject, onBack, onEdit, editing, setEditing, nav }: { 
         <p className="muted">완료 {n(plan.completed)} / 전체 {n(plan.target)}{subject.unit} ({plan.progress.toFixed(0)}%) · 남은 {n(plan.remaining)}{subject.unit}</p>
       </div>
 
+      {info.rounds > 1 && (
+        <div className="block">
+          <h3 className="h-sub">회독</h3>
+          <p><strong>{info.round}회독</strong> 진행 중 · {n(info.inRound)} / {n(info.base)}{subject.unit} (목표 {info.rounds}회독)</p>
+          <ProgressBar value={info.base > 0 ? (info.inRound / info.base) * 100 : 0} />
+          {info.history.length > 0 && <p className="muted">{info.history.map((h) => `${h.round}회독 ${h.days}일`).join(' → ')}</p>}
+        </div>
+      )}
+
+      {leaves.length > 0 && (
+        <div className="block">
+          <h3 className="h-sub">진도 지도 <em>({leaves.filter(({ chapter }) => chapterInRound(chapter, info.round, data.sessions) >= chapter.targetAmount).length}/{leaves.length} 단원)</em></h3>
+          <div className="map" role="img" aria-label="단원별 진도 지도">
+            {leaves.map(({ chapter }) => {
+              const done = chapterInRound(chapter, info.round, data.sessions);
+              const ratio = chapter.targetAmount > 0 ? done / chapter.targetAmount : 0;
+              const reviewed = data.reviews.some((r) => r.chapterId === chapter.id && r.outcomes.some((o) => o.result === 'remembered'));
+              const level = ratio >= 1 ? (reviewed ? 3 : 2) : ratio > 0 ? 1 : 0;
+              return <span key={chapter.id} className={`cell cell-${level}`} title={`${chapter.title} ${Math.round(ratio * 100)}%`} />;
+            })}
+          </div>
+          <p className="muted map-legend"><span className="cell cell-0" /> 미학습 <span className="cell cell-1" /> 학습 중 <span className="cell cell-2" /> 완료 <span className="cell cell-3" /> 복습까지</p>
+        </div>
+      )}
+
+      <Button variant="primary" block onClick={() => setChecking(true)}>진도 체크</Button>
+      {checking && <CheckIn subject={subject} onClose={() => setChecking(false)} />}
+
       <PlanNumbers plan={plan} unit={subject.unit} />
 
       {plan.options.length > 0 && (
@@ -229,7 +267,7 @@ function SubjectDetail({ subject, onBack, onEdit, editing, setEditing, nav }: { 
           <strong>재조정 제안</strong>
           <p>선택하기 전에는 아무것도 바뀌지 않아요.</p>
           <div className="stack-sm">
-            {plan.options.filter((o) => !(o.kind === 'reduce' && subject.mode === 'chapters')).map((o) => (
+            {usableOptions(subject, plan).map((o) => (
               <Button key={o.kind} block onClick={() => window.confirm(`${o.label}\n\n이대로 변경할까요?`) && dispatch({ type: 'UPSERT_SUBJECT', subject: applyOption(subject, plan, o) })}>{o.label}</Button>
             ))}
           </div>
@@ -254,7 +292,7 @@ function SubjectDetail({ subject, onBack, onEdit, editing, setEditing, nav }: { 
           ) : (
             <ul className="list">
               {rows.map(({ chapter, depth }) => {
-                const done = chapterCompleted(chapter.id, data.sessions);
+                const done = chapterInRound(chapter, info.round, data.sessions);
                 const isParent = data.chapters.some((c) => c.parentId === chapter.id);
                 return (
                   <li key={chapter.id} className="row chapter" style={{ paddingLeft: 12 + depth * 18 }}>

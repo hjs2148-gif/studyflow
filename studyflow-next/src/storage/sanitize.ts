@@ -33,6 +33,7 @@ export function sanitize(raw: unknown): AppData | null {
         startDate: s.startDate,
         endDate: s.endDate,
         studyDays: arr(s.studyDays).filter((d): d is number => typeof d === 'number' && d >= 0 && d <= 6),
+        ...(typeof s.targetRounds === 'number' ? { targetRounds: Math.max(1, Math.round(num(s.targetRounds, 1))) } : {}),
         status: (s.status === 'paused' || s.status === 'done' ? s.status : 'active') as SubjectStatus,
       },
     ];

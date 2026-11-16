@@ -231,3 +231,26 @@ describe('오늘 추천', () => {
     expect(pickPriority([{ subject: a, plan: pa }])).toBeUndefined();
   });
 });
+
+import { chapterInRound, roundInfo } from './plan';
+describe('회독', () => {
+  const s = subject({ targetAmount: 100, targetRounds: 3 });
+  it('전체 목표 = 1회독 × 회독 수, 현재 회독과 회독별 소요일', () => {
+    const ss = [session({ date: '2026-01-01', amount: 60 }), session({ date: '2026-01-10', amount: 50 }), session({ date: '2026-01-14', amount: 100 })];
+    expect(subjectTarget(s, [])).toBe(300);
+    const r = roundInfo(s, [], ss);
+    expect(r.round).toBe(3);
+    expect(r.inRound).toBe(10);
+    expect(r.history).toEqual([{ round: 1, days: 10 }, { round: 2, days: 5 }]);
+  });
+  it('회독 미지정 과목은 1회독', () => {
+    expect(roundInfo(subject(), [], []).rounds).toBe(1);
+    expect(subjectTarget(subject(), [])).toBe(500);
+  });
+  it('단원의 현재 회독 진도', () => {
+    const ch: Chapter = { id: 'c', subjectId: 's1', parentId: null, title: 't', order: 0, targetAmount: 20 };
+    const ss = [session({ chapterId: 'c', amount: 20 }), session({ chapterId: 'c', amount: 5 })];
+    expect(chapterInRound(ch, 1, ss)).toBe(20);
+    expect(chapterInRound(ch, 2, ss)).toBe(5);
+  });
+});

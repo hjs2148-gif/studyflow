@@ -3,6 +3,11 @@ import type { Chapter, DateStr, StudySession, Subject } from './types';
 
 /** 목차 기반 과목의 목표량 = 하위 단원이 없는 단원(leaf)의 목표량 합 */
 export function subjectTarget(subject: Subject, chapters: Chapter[]): number {
+  return roundBase(subject, chapters) * (subject.targetRounds ?? 1);
+}
+
+/** 1회독 분량 */
+export function roundBase(subject: Subject, chapters: Chapter[]): number {
   if (subject.mode === 'amount') return subject.targetAmount;
   const own = chapters.filter((c) => c.subjectId === subject.id);
   const parents = new Set(own.map((c) => c.parentId).filter(Boolean));
@@ -234,4 +239,42 @@ export function pickPriority(items: { subject: Subject; plan: PlanSummary }[]) {
   return items
     .filter((i) => i.plan.state !== 'done' && i.plan.state !== 'not_started' && i.plan.isStudyDayToday && i.plan.todayTarget - i.plan.todayDone > 0)
     .sort((a, b) => rank(b.plan) - rank(a.plan))[0];
+}
+
+export interface RoundInfo {
+  rounds: number;
+  /** 현재 회독 (1부터) */
+  round: number;
+  base: number;
+  /** 현재 회독에서 완료한 분량 */
+  inRound: number;
+  /** 끝낸 회독별 소요일 */
+  history: { round: number; days: number }[];
+}
+
+export function roundInfo(subject: Subject, chapters: Chapter[], sessions: StudySession[]): RoundInfo {
+  const rounds = subject.targetRounds ?? 1;
+  const base = roundBase(subject, chapters);
+  const mine = sessionsOf(subject.id, sessions).sort((a, b) => a.date.localeCompare(b.date) || a.endTime - b.endTime);
+  const completed = mine.reduce((s, x) => s + x.amount, 0);
+  if (base <= 0) return { rounds, round: 1, base, inRound: 0, history: [] };
+  const round = Math.min(rounds, Math.floor(completed / base) + 1);
+  const inRound = Math.min(base, completed - (round - 1) * base);
+  const history: RoundInfo['history'] = [];
+  let cum = 0;
+  let from = mine[0]?.date;
+  for (const s of mine) {
+    cum += s.amount;
+    while (history.length < rounds && cum >= (history.length + 1) * base) {
+      history.push({ round: history.length + 1, days: diffDays(from!, s.date) + 1 });
+      from = s.date;
+    }
+  }
+  return { rounds, round, base, inRound, history };
+}
+
+/** 현재 회독 기준 단원 완료량 */
+export function chapterInRound(chapter: Chapter, round: number, sessions: StudySession[]): number {
+  const t = chapter.targetAmount;
+  return Math.max(0, Math.min(t, chapterCompleted(chapter.id, sessions) - (round - 1) * t));
 }

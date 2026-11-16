@@ -6,12 +6,14 @@ import { dueReviews, latestRecall } from '../domain/review';
 import type { ReviewResult, Review, Subject } from '../domain/types';
 import { useStore } from '../state/store';
 import type { Nav } from './App';
-import { applyOption } from './reschedule';
+import { CheckIn } from './CheckIn';
+import { applyOption, usableOptions } from './reschedule';
 import { Button, Empty, ProgressBar, fmtMinutes } from './primitives';
 
 export function Today({ nav }: { nav: Nav }) {
   const { data, today, dispatch } = useStore();
   const { exam } = data;
+  const [checking, setChecking] = useState<Subject | null>(null);
 
   if (!exam) {
     return (
@@ -116,6 +118,7 @@ export function Today({ nav }: { nav: Nav }) {
                         </span>
                         <ProgressBar value={plan.todayTarget > 0 ? (plan.todayDone / plan.todayTarget) * 100 : 0} />
                       </div>
+                      <Button variant="ghost" onClick={() => setChecking(subject)}>체크</Button>
                       <Button variant="ghost" onClick={() => nav.go('focus', { subjectId: subject.id, chapterId: null })}>시작</Button>
                     </li>
                   );
@@ -125,6 +128,8 @@ export function Today({ nav }: { nav: Nav }) {
           )}
         </>
       )}
+
+      {checking && <CheckIn subject={checking} onClose={() => setChecking(null)} />}
 
       <div className="block">
         <h3 className="h-sub">오늘 복습 {due.length > 0 && <span className="count">{due.length}</span>}</h3>
@@ -182,7 +187,7 @@ function ReviewRow({ review, onResult }: { review: Review; onResult: (r: ReviewR
 
 function RescheduleCard({ subject, plan }: { subject: Subject; plan: PlanSummary }) {
   const { dispatch } = useStore();
-  const options = plan.options.filter((o) => !(o.kind === 'reduce' && subject.mode === 'chapters'));
+  const options = usableOptions(subject, plan);
   return (
     <div className="callout callout-warn">
       <strong>{subject.name}: 일정 재조정을 권해요</strong>

@@ -26,6 +26,8 @@ export interface Subject {
   /** 학습 가능 요일. 0=일 … 6=토 */
   studyDays: number[];
   status: SubjectStatus;
+  /** 목표 회독 수 (없으면 1) */
+  targetRounds?: number;
 }
 
 export interface Chapter {
